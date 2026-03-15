@@ -58,6 +58,8 @@ async def register(request: RegisterRequest):
     """
     if len(request.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if len(request.password) > 72:
+        raise HTTPException(status_code=400, detail="Password must be 72 characters or fewer")
 
     db = get_database()
     existing = await db.users.find_one({"username": request.username})
