@@ -12,7 +12,6 @@ services:
     image: mongo:7.0
     container_name: ida-mongodb
     restart: always
-    # Do NOT expose 27017 to the host in production — internal only
     expose:
       - "27017"
     volumes:
@@ -22,6 +21,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - ida-network
 
@@ -33,18 +33,6 @@ services:
       - "11434"
     volumes:
       - ollama_data:/root/.ollama
-    entrypoint: >
-      sh -c "ollama serve &
-             sleep 10 &&
-             ollama pull llama2 &&
-             wait"
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      # Give model pull time to finish on first run (~4GB download)
-      start_period: 300s
     networks:
       - ida-network
     deploy:
@@ -57,13 +45,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: ida-backend
-    restart: always
+    restart: on-failure
     ports:
       - "8000:8000"
     environment:
-      # These use the Docker service hostnames — correct for container networking.
-      # They override nothing from a .env file because the backend image
-      # does NOT load a .env file (env_file is disabled in config.py).
       - MONGO_URI=mongodb://mongodb:27017/ida
       - MONGO_DB_NAME=ida
       - OLLAMA_BASE_URL=http://ollama:11434
@@ -73,20 +58,13 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=60
       - SUPPORTED_LANGUAGES=en,hi,mr
       - WHISPER_MODEL=base
-    # NO volume mount of ./backend — we run the built image, not live source
     volumes:
       - whisper_cache:/home/app/.cache
     depends_on:
       mongodb:
         condition: service_healthy
       ollama:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
+        condition: service_started
     networks:
       - ida-network
 
@@ -95,17 +73,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # VITE_API_URL is the URL the *browser* uses to reach the backend.
-        # On a single machine this is localhost:8000.
-        # On a server, this must be the public hostname/IP.
         - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     container_name: ida-frontend
     restart: always
     ports:
       - "3000:3000"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
       - ida-network
 
