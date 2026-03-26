@@ -5,22 +5,26 @@ from config import settings
 from database import get_database
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
+import bcrypt
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(
+        password.encode('utf-8'),
+        bcrypt.gensalt()
+    ).decode('utf-8')
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(
+        plain.encode('utf-8'),
+        hashed.encode('utf-8')
+    )
 
 
 def create_access_token(data: dict) -> str:
@@ -52,10 +56,6 @@ async def verify_token(
 
 @router.post("/register", status_code=201)
 async def register(request: RegisterRequest):
-    """
-    Create a new user account. In production, restrict this endpoint
-    to admin roles or remove it and provision users out-of-band.
-    """
     if len(request.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if len(request.password) > 72:
@@ -80,7 +80,6 @@ async def login(request: LoginRequest):
     db = get_database()
     user_doc = await db.users.find_one({"username": request.username})
 
-    # Constant-time path: always verify even if user not found to prevent timing attacks
     dummy_hash = "$2b$12$KIXeOjFlmkOCk3HEGKFk8.invalid.hash.for.timing"
     stored_hash = user_doc["hashed_password"] if user_doc else dummy_hash
 
