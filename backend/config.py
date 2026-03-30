@@ -1,5 +1,5 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 
 
@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     supported_languages: str = "en,hi,mr"
     whisper_model: str = "base"
+
+    model_config = SettingsConfigDict(env_file=None)
 
     # No default_password - authentication is per-user (see auth.py)
 
@@ -46,4 +48,4 @@ class Settings(BaseSettings):
         env_file = None
 
 
-settings = Settings()
+settings = Settings()#type: ignore

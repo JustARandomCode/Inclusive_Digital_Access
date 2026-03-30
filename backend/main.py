@@ -61,7 +61,10 @@ app = FastAPI(
 # e.g. allow_origins=["https://your-domain.com"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # TODO: restrict before going to production
+    allow_origins=[ 
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -95,7 +98,7 @@ async def health_check():
     try:
         from database import db_instance
         if db_instance.db is not None:
-            await db_instance.client.admin.command("ping")
+            await db_instance.client.admin.command("ping") #type: ignore 
             services["mongodb"] = "healthy"
         else:
             services["mongodb"] = "disconnected"
